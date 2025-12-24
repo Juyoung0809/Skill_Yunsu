@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: chat-server
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/BS_Yunsu?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    password: 0809
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  jackson:
+    time-zone: Asia/Seoul
+
+logging:
+  level:
+    root: INFO
+
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace
+
+    org.springframework.web.socket: DEBUG
+    org.springframework.web.socket.messaging: DEBUG
+
+    org.springframework.messaging: DEBUG
+    org.springframework.messaging.simp: DEBUG
+    org.springframework.messaging.simp.stomp: DEBUG
+    org.springframework.messaging.simp.broker: DEBUG
+    org.springframework.messaging.support: DEBUG
+    org.springframework.messaging.handler: DEBUG
+    org.springframework.messaging.simp.annotation: DEBUG
+
+    org.springframework.messaging.support.ExecutorSubscribableChannel: DEBUG
+
+    org.springframework.security: DEBUG
+    org.springframework.security.web: DEBUG
+
+    com.Juyoung.Chat: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+
+jwt:
+  secret: this-is-very-secret-key-must-be-at-least-32-bytes-long
+  expiration-ms: 1800000   # 30분

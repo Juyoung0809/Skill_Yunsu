@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Chat Test (JWT + WebSocket)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+        .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+        input, button, textarea { padding: 10px; font-size: 14px; }
+        input, textarea { width: 260px; }
+        textarea { width: 100%; height: 120px; }
+        #log { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 8px; min-height: 220px; }
+        .small { font-size: 12px; color: #555; }
+        .wide { width: 520px; }
+    </style>
+</head>
+<body>
+
+<h2>JWT + WebSocket(STOMP) 채팅 테스트</h2>
+
+<div class="row">
+    <label>서버 URL</label>
+    <input id="baseUrl" class="wide" value="http://localhost:8080" />
+</div>
+
+<hr/>
+
+<h3>1) 로그인</h3>
+<div class="row">
+    <label>id</label>
+    <input id="loginId" placeholder="username 또는 email" />
+    <label>password</label>
+    <input id="loginPw" type="password" placeholder="password" />
+    <button id="btnLogin" type="button">로그인</button>
+</div>
+
+<div class="row">
+    <label>Access Token</label>
+    <input id="token" class="wide" placeholder="로그인 후 자동 입력" />
+    <button id="btnCopy" type="button">복사</button>
+</div>
+
+<hr/>
+
+<h3>2) WebSocket 연결 / 구독</h3>
+<div class="row">
+    <label>roomId</label>
+    <input id="roomId" value="1" />
+    <button id="btnConnect" type="button">연결</button>
+    <button id="btnDisconnect" type="button">해제</button>
+    <button id="btnSubscribe" type="button">구독</button>
+</div>
+
+<div class="small">
+    구독: <code>/sub/chat/room/{roomId}</code><br/>
+    전송: <code>/pub/chat/send</code>
+</div>
+
+<hr/>
+
+<h3>3) 메시지 전송</h3>
+<div class="row">
+    <input id="msg" class="wide" placeholder="보낼 메시지" />
+    <button id="btnSend" type="button">전송</button>
+</div>
+
+<hr/>
+
+<h3>로그</h3>
+<div id="log"></div>
+
+<!-- STOMP만 사용 (SockJS 제거) -->
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log");
+    let stompClient = null;
+    let subscription = null;
+
+    function log(msg) {
+        const now = new Date().toLocaleTimeString();
+        logEl.textContent += `[${now}] ${msg}\n`;
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function login() {
+        const baseUrl = $("baseUrl").value.trim();
+        const id = $("loginId").value.trim();
+        const password = $("loginPw").value;
+
+        const res = await fetch(`${baseUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, password })
+        });
+
+        if (!res.ok) {
+            log("로그인 실패");
+            return;
+        }
+
+        const data = await res.json();
+        $("token").value = data.accessToken;
+        log("로그인 성공");
+    }
+
+    function connectWs() {
+        const token = $("token").value.trim();
+        if (!token) {
+            log("토큰이 없습니다.");
+            return;
+        }
+
+        // ⭐ 순수 WebSocket + JWT Query Parameter
+        const wsUrl = `ws://localhost:8080/ws-chat?token=${token}`;
+        const socket = new WebSocket(wsUrl);
+
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect(
+            {},
+            () => log("WebSocket 연결 성공"),
+            (err) => log("WebSocket 연결 실패")
+        );
+    }
+
+    function disconnectWs() {
+        if (subscription) {
+            subscription.unsubscribe();
+            subscription = null;
+        }
+        if (stompClient) {
+            stompClient.disconnect(() => log("WebSocket 연결 해제"));
+            stompClient = null;
+        }
+    }
+
+    function subscribeRoom() {
+        const roomId = $("roomId").value.trim();
+        const dest = `/sub/chat/room/${roomId}`;
+
+        subscription = stompClient.subscribe(dest, (frame) => {
+            const body = JSON.parse(frame.body);
+            log(`수신: ${body.message}`);
+        });
+
+        log(`구독 시작: ${dest}`);
+    }
+
+    function sendMessage() {
+        const roomId = Number($("roomId").value);
+        const message = $("msg").value;
+
+        stompClient.send(
+            "/pub/chat/send",
+            {},
+            JSON.stringify({ roomId, message })
+        );
+
+        log(`전송: ${message}`);
+        $("msg").value = "";
+    }
+
+    function copyToken() {
+        navigator.clipboard.writeText($("token").value);
+        log("토큰 복사 완료");
+    }
+
+    $("btnLogin").onclick = login;
+    $("btnConnect").onclick = connectWs;
+    $("btnDisconnect").onclick = disconnectWs;
+    $("btnSubscribe").onclick = subscribeRoom;
+    $("btnSend").onclick = sendMessage;
+    $("btnCopy").onclick = copyToken;
+</script>
+
+</body>
+</html>
